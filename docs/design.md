@@ -181,12 +181,12 @@ speedscan/
 │   ├── __init__.py
 │   ├── __main__.py             # `python -m speedscan`
 │   ├── cli.py                  # arg parsing → wire engine + renderer
-│   ├── engine.py               # RsvpEngine, TextItem, LocationMarker
+│   ├── engine.py               # RsvpEngine
 │   ├── cache.py                # disk cache for parsed TextItem[]
 │   ├── persistence.py          # resume positions (XDG config)
 │   ├── sources/
 │   │   ├── __init__.py         # SOURCES registry + factory
-│   │   ├── base.py             # TextSource Protocol
+│   │   ├── base.py             # TextSource Protocol, TextItem, LocationMarker
 │   │   ├── txt.py
 │   │   └── pdf.py
 │   └── ui/

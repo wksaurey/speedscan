@@ -66,7 +66,10 @@ Roughly prioritized:
 - `.html` source via `BeautifulSoup`
 - `.docx` source via `python-docx`
 - "Go to" dialog with fuzzy section search
-- Auto-pause heuristics (sentence end, paragraph end)
+- Configurable end-of-sentence/paragraph pause — short dwell on
+  terminal punctuation so the reader can consolidate the clause before
+  the next one arrives. User-tunable (e.g. 0–500ms sentence, longer for
+  paragraph); set to 0 to disable.
 - Optional TUI renderer (textual)
 - `.mobi`, `.fb2` for completeness
 - Full content sniffing via `puremagic` or `python-magic` — v1's

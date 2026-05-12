@@ -56,7 +56,7 @@ class SpeedScanApp(ctk.CTk):
     ) -> None:
         super().__init__()
         self.title(f"SpeedScan — {doc.title}")
-        self.geometry("720x480")
+        self.geometry("1280x800")
 
         self._engine = engine
         self._doc = doc

@@ -15,7 +15,7 @@ from speedscan.cache import Cache, default_cache_dir, hash_file
 from speedscan.engine import RsvpEngine
 from speedscan.persistence import Persistence, default_config_dir
 from speedscan.sources import source_for
-from speedscan.sources.base import PageLocation, TextItem
+from speedscan.sources.base import LineLocation, PageLocation, TextItem
 from speedscan.ui.app import DocumentInfo, run
 
 
@@ -23,7 +23,22 @@ def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="speedscan", description="RSVP text reader")
     p.add_argument("file", type=Path, help="path to a .txt (.pdf coming soon)")
     p.add_argument("--wpm", type=int, default=400, help="words per minute (default 400)")
+    p.add_argument(
+        "--start-line",
+        type=int,
+        default=None,
+        metavar="N",
+        help="skip ahead to the first word at or after line N (overrides resume)",
+    )
     return p
+
+
+def _index_at_or_after_line(items: list[TextItem], line: int) -> int | None:
+    """Return the first index whose LineLocation.line >= `line`, or None."""
+    for i, item in enumerate(items):
+        if isinstance(item.location, LineLocation) and item.location.line >= line:
+            return i
+    return None
 
 
 def _max_page(items: list[TextItem]) -> int:
@@ -32,6 +47,14 @@ def _max_page(items: list[TextItem]) -> int:
         if isinstance(item.location, PageLocation):
             max_page = max(max_page, item.location.page)
     return max_page
+
+
+def _max_line(items: list[TextItem]) -> int:
+    max_line = 0
+    for item in items:
+        if isinstance(item.location, LineLocation):
+            max_line = max(max_line, item.location.line)
+    return max_line
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -61,9 +84,21 @@ def main(argv: list[str] | None = None) -> int:
 
     file_hash = hash_file(path)
     engine = RsvpEngine(items, wpm=args.wpm)
-    resume_index = persistence.load_position(file_hash)
-    if resume_index is not None and 0 <= resume_index < len(items):
-        engine.seek_to_index(resume_index)
+    if args.start_line is not None:
+        target = _index_at_or_after_line(items, args.start_line)
+        if target is None:
+            print(
+                f"speedscan: no content at or after line {args.start_line} "
+                f"(document has line-located items only up to line "
+                f"{_max_line(items)}); falling back to start of file",
+                file=sys.stderr,
+            )
+        else:
+            engine.seek_to_index(target)
+    else:
+        resume_index = persistence.load_position(file_hash)
+        if resume_index is not None and 0 <= resume_index < len(items):
+            engine.seek_to_index(resume_index)
 
     doc = DocumentInfo(
         title=path.name,

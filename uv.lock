@@ -180,7 +180,7 @@ dependencies = [
     { name = "pymupdf" },
 ]
 
-[package.optional-dependencies]
+[package.dev-dependencies]
 dev = [
     { name = "build" },
     { name = "pyright" },
@@ -190,14 +190,17 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "build", marker = "extra == 'dev'", specifier = ">=1.0" },
     { name = "customtkinter", specifier = ">=5.2.0" },
     { name = "pymupdf", specifier = ">=1.24.0" },
-    { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.5" },
 ]
-provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "build", specifier = ">=1.0" },
+    { name = "pyright", specifier = ">=1.1" },
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "ruff", specifier = ">=0.5" },
+]
 
 [[package]]
 name = "typing-extensions"

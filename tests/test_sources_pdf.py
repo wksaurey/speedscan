@@ -32,6 +32,20 @@ def _write_pdf(path: Path, pages: Iterable[str]) -> None:
         doc.save(path)
 
 
+def _write_pdf_lines(path: Path, pages: Iterable[Iterable[str]]) -> None:
+    """Write a PDF where each page is a list of explicitly-positioned lines.
+
+    Used to force pymupdf's dict extractor to see specific line breaks —
+    necessary for dehyphenation tests.
+    """
+    with pymupdf.open() as doc:
+        for lines in pages:
+            page = doc.new_page()
+            for index, line in enumerate(lines):
+                page.insert_text((72, 72 + 20 * index), line)
+        doc.save(path)
+
+
 def test_yields_one_item_per_word(tmp_path: Path) -> None:
     pdf = tmp_path / "single.pdf"
     _write_pdf(pdf, ["hello world"])
@@ -129,6 +143,91 @@ def test_yields_text_item_instances(tmp_path: Path) -> None:
     items = list(PdfSource(pdf).extract())
 
     assert all(isinstance(item, TextItem) for item in items)
+
+
+def test_joins_hyphenated_word_across_lines(tmp_path: Path) -> None:
+    pdf = tmp_path / "hyphen.pdf"
+    _write_pdf_lines(pdf, [["graphi-", "cally detailed"]])
+
+    items = list(PdfSource(pdf).extract())
+
+    assert [item.text for item in items] == ["graphically", "detailed"]
+
+
+def test_preserves_lexical_hyphen_within_token(tmp_path: Path) -> None:
+    # "all-stop" is a single token in the source — no whitespace inside,
+    # so it never enters the dehyphenation path and stays intact.
+    pdf = tmp_path / "lex.pdf"
+    _write_pdf(pdf, ["the all-stop button"])
+
+    items = list(PdfSource(pdf).extract())
+
+    assert [item.text for item in items] == ["the", "all-stop", "button"]
+
+
+def test_does_not_join_when_continuation_starts_uppercase(tmp_path: Path) -> None:
+    # Uppercase next line signals a proper noun or sentence start, not a
+    # continuation of a hyphenated stem.
+    pdf = tmp_path / "upper.pdf"
+    _write_pdf_lines(pdf, [["co-", "Operative Boston"]])
+
+    items = list(PdfSource(pdf).extract())
+
+    assert [item.text for item in items] == ["co-", "Operative", "Boston"]
+
+
+def test_does_not_join_when_continuation_starts_with_digit(tmp_path: Path) -> None:
+    # Numeric range "14-\n15", not a hyphenated word.
+    pdf = tmp_path / "digit.pdf"
+    _write_pdf_lines(pdf, [["page 14-", "15 of the report"]])
+
+    items = list(PdfSource(pdf).extract())
+
+    assert [item.text for item in items] == ["page", "14-", "15", "of", "the", "report"]
+
+
+def test_joins_hyphenated_word_across_pages(tmp_path: Path) -> None:
+    # Hyphenation can bridge a page break in printed books.
+    pdf = tmp_path / "cross_page.pdf"
+    _write_pdf_lines(pdf, [["begin-"], ["ning starts here"]])
+
+    items = list(PdfSource(pdf).extract())
+
+    assert [item.text for item in items] == ["beginning", "starts", "here"]
+
+
+def test_joined_word_location_is_page_where_hyphen_appeared(tmp_path: Path) -> None:
+    # Reader sees the joined word first on the page where the hyphen
+    # lived — anchor location there so the page counter lines up.
+    pdf = tmp_path / "loc.pdf"
+    _write_pdf_lines(pdf, [["begin-"], ["ning here"]])
+
+    items = list(PdfSource(pdf).extract())
+
+    assert items[0].text == "beginning"
+    assert items[0].location == PageLocation(page=1)
+    assert items[1].location == PageLocation(page=2)
+
+
+def test_trailing_hyphen_at_end_of_document_emitted_as_is(tmp_path: Path) -> None:
+    # Nothing follows — emit the partial token rather than dropping it.
+    pdf = tmp_path / "trailing.pdf"
+    _write_pdf_lines(pdf, [["sentence ends with stem-"]])
+
+    items = list(PdfSource(pdf).extract())
+
+    assert [item.text for item in items] == ["sentence", "ends", "with", "stem-"]
+
+
+def test_solo_hyphen_at_line_end_not_treated_as_hyphenation(tmp_path: Path) -> None:
+    # A bare "-" (length 1) is a dash/bullet, not a word stem awaiting
+    # a continuation.
+    pdf = tmp_path / "solo.pdf"
+    _write_pdf_lines(pdf, [["item -", "next thing"]])
+
+    items = list(PdfSource(pdf).extract())
+
+    assert [item.text for item in items] == ["item", "-", "next", "thing"]
 
 
 def test_raises_on_corrupt_pdf(tmp_path: Path) -> None:

@@ -30,6 +30,13 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="N",
         help="skip ahead to the first word at or after line N (overrides resume)",
     )
+    p.add_argument(
+        "--start-page",
+        type=int,
+        default=None,
+        metavar="N",
+        help="skip ahead to the first word at or after page N (overrides resume)",
+    )
     return p
 
 
@@ -37,6 +44,14 @@ def _index_at_or_after_line(items: list[TextItem], line: int) -> int | None:
     """Return the first index whose LineLocation.line >= `line`, or None."""
     for i, item in enumerate(items):
         if isinstance(item.location, LineLocation) and item.location.line >= line:
+            return i
+    return None
+
+
+def _index_at_or_after_page(items: list[TextItem], page: int) -> int | None:
+    """Return the first index whose PageLocation.page >= `page`, or None."""
+    for i, item in enumerate(items):
+        if isinstance(item.location, PageLocation) and item.location.page >= page:
             return i
     return None
 
@@ -91,6 +106,17 @@ def main(argv: list[str] | None = None) -> int:
                 f"speedscan: no content at or after line {args.start_line} "
                 f"(document has line-located items only up to line "
                 f"{_max_line(items)}); falling back to start of file",
+                file=sys.stderr,
+            )
+        else:
+            engine.seek_to_index(target)
+    elif args.start_page is not None:
+        target = _index_at_or_after_page(items, args.start_page)
+        if target is None:
+            print(
+                f"speedscan: no content at or after page {args.start_page} "
+                f"(document has page-located items only up to page "
+                f"{_max_page(items)}); falling back to start of file",
                 file=sys.stderr,
             )
         else:

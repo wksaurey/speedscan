@@ -29,7 +29,17 @@ from speedscan.sources.base import (
 
 _HASH_PREFIX_LEN = 16
 _READ_CHUNK = 64 * 1024
-_CACHE_FORMAT_VERSION = 1
+
+# Bump this whenever a change in any TextSource would make stored tokens
+# stale — extractor logic changes, new fields, schema changes. The file
+# hash alone can't catch this (same bytes, different parse). _try_load
+# treats a mismatch as a cache miss, so bumping safely invalidates every
+# user's cache on the next run.
+#
+# Version history:
+#   1 — initial.
+#   2 — PdfSource added line-break dehyphenation.
+_CACHE_FORMAT_VERSION = 2
 
 
 def default_cache_dir() -> Path:

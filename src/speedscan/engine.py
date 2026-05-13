@@ -22,6 +22,17 @@ from speedscan.sources.base import LocationMarker, TextItem
 _WPM_MIN = 100
 _WPM_MAX = 1500
 
+# Hold the current word slightly longer when it ends in punctuation so
+# the reader gets a beat at clause and sentence boundaries. Multipliers
+# applied over the base 60_000//wpm delay. Standard RSVP convention.
+_SENTENCE_END = (".", "!", "?", "…")  # period, bang, question, ellipsis
+_CLAUSE_END = (",", ";", ":", "—")  # comma, semicolon, colon, em-dash
+_SENTENCE_MULTIPLIER = 2.0
+_CLAUSE_MULTIPLIER = 1.5
+# Strip closing punctuation/quotes before checking the trailing char so
+# `end."` and `(hello!)` still get the sentence-end pause.
+_TRAILING_TRIM = "\"')]}»”’"  # noqa: RUF001  curly quotes intentional — match real PDF text
+
 
 class EngineState(StrEnum):
     IDLE = "idle"
@@ -124,9 +135,14 @@ class RsvpEngine:
 
     @property
     def current_word_delay_ms(self) -> int:
-        # 60_000 ms/min ÷ wpm = ms per word. Integer division is fine —
-        # the renderer's `after()` takes int milliseconds anyway.
-        return 60_000 // self._wpm
+        # 60_000 ms/min ÷ wpm = base ms per word. The current item gets
+        # a longer pause when it ends in punctuation; see _SENTENCE_END /
+        # _CLAUSE_END.
+        base = 60_000 // self._wpm
+        item = self.current_item
+        if item is None:
+            return base
+        return int(base * _punctuation_multiplier(item.text))
 
     # ── subscriptions ───────────────────────────────────────────────────
 
@@ -163,3 +179,13 @@ def _clamp(value: int, lo: int, hi: int) -> int:
 
 def _clamp_wpm(wpm: int) -> int:
     return _clamp(wpm, _WPM_MIN, _WPM_MAX)
+
+
+def _punctuation_multiplier(text: str) -> float:
+    """Return the delay multiplier for a token based on its trailing punctuation."""
+    inner = text.rstrip(_TRAILING_TRIM)
+    if inner.endswith(_SENTENCE_END):
+        return _SENTENCE_MULTIPLIER
+    if inner.endswith(_CLAUSE_END):
+        return _CLAUSE_MULTIPLIER
+    return 1.0

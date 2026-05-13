@@ -227,6 +227,64 @@ class TestWpm:
         engine.set_wpm(10)
         assert engine.wpm == 100
 
+
+def _items_for_word(word: str) -> list[TextItem]:
+    return [TextItem(text=word, location=PageLocation(page=1))]
+
+
+class TestPunctuationPause:
+    def test_period_doubles_word_delay(self) -> None:
+        engine = RsvpEngine(_items_for_word("end."))
+        # Base 150 ms * 2.0 = 300 ms.
+        assert engine.current_word_delay_ms == 300
+
+    def test_exclamation_doubles_word_delay(self) -> None:
+        engine = RsvpEngine(_items_for_word("wow!"))
+        assert engine.current_word_delay_ms == 300
+
+    def test_question_mark_doubles_word_delay(self) -> None:
+        engine = RsvpEngine(_items_for_word("really?"))
+        assert engine.current_word_delay_ms == 300
+
+    def test_ellipsis_doubles_word_delay(self) -> None:
+        engine = RsvpEngine(_items_for_word("well…"))
+        assert engine.current_word_delay_ms == 300
+
+    def test_comma_adds_clause_pause(self) -> None:
+        engine = RsvpEngine(_items_for_word("yes,"))
+        # 150 * 1.5 = 225 ms.
+        assert engine.current_word_delay_ms == 225
+
+    def test_semicolon_adds_clause_pause(self) -> None:
+        engine = RsvpEngine(_items_for_word("first;"))
+        assert engine.current_word_delay_ms == 225
+
+    def test_colon_adds_clause_pause(self) -> None:
+        engine = RsvpEngine(_items_for_word("listen:"))
+        assert engine.current_word_delay_ms == 225
+
+    def test_em_dash_adds_clause_pause(self) -> None:
+        engine = RsvpEngine(_items_for_word("wait—"))
+        assert engine.current_word_delay_ms == 225
+
+    def test_unpunctuated_word_uses_base_delay(self) -> None:
+        engine = RsvpEngine(_items_for_word("hello"))
+        assert engine.current_word_delay_ms == 150
+
+    def test_trailing_quote_does_not_mask_sentence_end(self) -> None:
+        # `end."` and `done!)` should still get the sentence pause.
+        engine = RsvpEngine(_items_for_word('end."'))
+        assert engine.current_word_delay_ms == 300
+
+    def test_trailing_paren_does_not_mask_clause_pause(self) -> None:
+        engine = RsvpEngine(_items_for_word("(yes,)"))
+        assert engine.current_word_delay_ms == 225
+
+    def test_pause_scales_with_wpm(self) -> None:
+        engine = RsvpEngine(_items_for_word("end."), wpm=600)
+        # Base 100 ms * 2.0 = 200 ms.
+        assert engine.current_word_delay_ms == 200
+
     def test_set_wpm_clamps_above_maximum(self) -> None:
         engine = RsvpEngine(_sample_items())
         engine.set_wpm(9999)

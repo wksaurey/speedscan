@@ -10,6 +10,17 @@ Words are split on whitespace; attached punctuation stays glued to the
 word it touches (so "hello," is one item). Page numbers are 1-based and
 reported via PageLocation.
 
+# Letter-spaced title collapse
+
+Typographers letter-space chapter titles, brand names, and section
+headings ("C H A P T E R", "P I C T U R E S"). pymupdf's extractor
+sees each glyph as its own token, which renders in RSVP as a string
+of single-letter "words". When a line contains a run of 3+
+consecutive single-character uppercase ASCII letters we collapse
+them into one token ("CHAPTER"). Lowercase letter-spacing exists too
+but is rare enough to defer — the uppercase rule covers all real
+cases observed in the CCA3330 textbook.
+
 # Line-break dehyphenation
 
 Print-formatted PDFs hyphenate words at the right margin ("graphi-" /
@@ -66,7 +77,7 @@ class PdfSource:
                 page_number = page_index + 1
 
                 for line_text in _page_lines(page):
-                    words = line_text.split()
+                    words = _collapse_letterspaced(line_text.split())
                     if not words:
                         continue
 
@@ -98,6 +109,31 @@ class PdfSource:
             # as-is rather than dropping the word entirely.
             if pending is not None:
                 yield _item(pending[0], pending[1])
+
+
+_LETTERSPACE_MIN_RUN = 3
+
+
+def _collapse_letterspaced(words: list[str]) -> list[str]:
+    """Collapse runs of 3+ consecutive single-character uppercase letters.
+
+    Operates on the words of a single line so it can't accidentally
+    swallow a run that spans a real visual break.
+    """
+    result: list[str] = []
+    i = 0
+    n = len(words)
+    while i < n:
+        j = i
+        while j < n and len(words[j]) == 1 and "A" <= words[j] <= "Z":
+            j += 1
+        if j - i >= _LETTERSPACE_MIN_RUN:
+            result.append("".join(words[i:j]))
+            i = j
+        else:
+            result.append(words[i])
+            i += 1
+    return result
 
 
 def _item(text: str, page: int) -> TextItem:

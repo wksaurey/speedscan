@@ -39,7 +39,8 @@ _READ_CHUNK = 64 * 1024
 # Version history:
 #   1 — initial.
 #   2 — PdfSource added line-break dehyphenation.
-_CACHE_FORMAT_VERSION = 2
+#   3 — PdfSource added letter-spaced title collapse.
+_CACHE_FORMAT_VERSION = 3
 
 
 def default_cache_dir() -> Path:

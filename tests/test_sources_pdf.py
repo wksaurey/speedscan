@@ -230,6 +230,49 @@ def test_solo_hyphen_at_line_end_not_treated_as_hyphenation(tmp_path: Path) -> N
     assert [item.text for item in items] == ["item", "-", "next", "thing"]
 
 
+def test_collapses_letterspaced_uppercase_title(tmp_path: Path) -> None:
+    # Typographic letter-spacing ("C H A P T E R") shows up as separate
+    # tokens to pymupdf; we re-stitch them.
+    pdf = tmp_path / "title.pdf"
+    _write_pdf(pdf, ["C H A P T E R  2"])
+
+    items = list(PdfSource(pdf).extract())
+
+    assert [item.text for item in items] == ["CHAPTER", "2"]
+
+
+def test_collapses_letterspaced_with_three_letter_minimum(tmp_path: Path) -> None:
+    # Two-letter runs are ordinary words ("A B" could be initials);
+    # only collapse 3+.
+    pdf = tmp_path / "short.pdf"
+    _write_pdf(pdf, ["A B is fine but X Y Z collapses"])
+
+    items = list(PdfSource(pdf).extract())
+
+    assert [item.text for item in items] == ["A", "B", "is", "fine", "but", "XYZ", "collapses"]
+
+
+def test_does_not_collapse_lowercase_singles(tmp_path: Path) -> None:
+    # "a b c" mid-sentence stays apart — lowercase letter-spacing is
+    # rare enough we don't infer it from singletons.
+    pdf = tmp_path / "lower.pdf"
+    _write_pdf(pdf, ["a b c are first letters"])
+
+    items = list(PdfSource(pdf).extract())
+
+    assert [item.text for item in items] == ["a", "b", "c", "are", "first", "letters"]
+
+
+def test_does_not_collapse_across_a_lowercase_break(tmp_path: Path) -> None:
+    # The run must be continuous uppercase singletons.
+    pdf = tmp_path / "broken.pdf"
+    _write_pdf(pdf, ["A B and X Y Z"])
+
+    items = list(PdfSource(pdf).extract())
+
+    assert [item.text for item in items] == ["A", "B", "and", "XYZ"]
+
+
 def test_raises_on_corrupt_pdf(tmp_path: Path) -> None:
     # Magic bytes look right but the rest is garbage. pymupdf raises
     # FileDataError; we let it propagate so the CLI can present an

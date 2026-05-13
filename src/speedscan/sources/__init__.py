@@ -18,12 +18,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from speedscan.sources.base import TextSource
+from speedscan.sources.pdf import PdfSource
 from speedscan.sources.txt import TxtSource
 
 # Public registry — keyed by short format name. Currently informational
 # (the factory picks via magic bytes, not this dict). A future v2
 # content sniff via puremagic/python-magic will consume it directly.
-SOURCES: dict[str, type[TextSource]] = {"txt": TxtSource}
+SOURCES: dict[str, type[TextSource]] = {"txt": TxtSource, "pdf": PdfSource}
 
 _SNIFF_BYTES = 5
 _PDF_MAGIC = b"%PDF-"
@@ -33,11 +34,7 @@ def source_for(path: Path) -> TextSource:
     """Return the right TextSource for `path`, sniffing magic bytes."""
     head = _read_head(path)
     if head.startswith(_PDF_MAGIC):
-        # PdfSource lands in a follow-up task; until then a PDF reaches
-        # this branch only if the user explicitly opens one.
-        raise NotImplementedError(
-            "PDF support is not yet implemented. Open a .txt file or wait for the PdfSource task."
-        )
+        return PdfSource(path)
     return TxtSource(path)
 
 
